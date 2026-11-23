@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lucky Spin Wheel</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+  body {
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    color: #fff;
+    background: radial-gradient(ellipse at 50% 0%, #34aaff 0%, #0d6fd6 45%, #063e8a 100%);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px 0;
+  }
+
+  .btn {
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font: 600 13px inherit;
+    font-family: inherit;
+    cursor: pointer;
+    background: rgba(255, 255, 255, .14);
+    color: #fff;
+    transition: background .15s, transform .1s;
+  }
+  .btn:hover { background: rgba(255, 255, 255, .24); }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.gold { background: linear-gradient(#ffd96a, #e8a91c); color: #4a2c00; }
+  .btn.gold:hover { background: linear-gradient(#ffe48a, #f0b82e); }
+
+  /* ---------- Header ---------- */
+  header { text-align: center; padding: 0 20px 6px; }
+  .title {
+    font-size: clamp(26px, 3.6vw, 52px);
+    font-weight: 800;
+    letter-spacing: .02em;
+    text-shadow: 0 3px 0 #0a3f86, 0 6px 18px rgba(0, 0, 0, .35);
+    outline: none;
+  }
+  .stats { margin-top: 8px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .chip {
+    background: rgba(4, 30, 70, .4);
+    border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: 999px;
+    padding: 5px 14px;
+    font-size: 14px;
+  }
+  .chip b { color: #ffd96a; }
+
+  /* ---------- Wheel stage ---------- */
+  .stage {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
+  }
+  canvas#wheel { display: block; cursor: pointer; }
+
+  .base {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 0 0 18px;
+    position: relative;
+  }
+  .base::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: var(--base-width, 80%);
+    height: 14px;
+    border-radius: 0 0 14px 14px;
+    background: linear-gradient(#0a3f86, #062c63);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, .35);
+  }
+  .spin-btn {
+    margin-top: 26px;
+    font-size: 20px;
+    padding: 13px 60px;
+    border-radius: 999px;
+    letter-spacing: .12em;
+    box-shadow: 0 6px 0 #a86f00, 0 10px 24px rgba(0, 0, 0, .3);
+  }
+  .spin-btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #a86f00; }
+  .hint { font-size: 12px; color: #b9dcff; line-height: 1.5; }
+
+  /* ---------- Settings drawer ---------- */
+  .drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 360px;
+    max-width: 92vw;
+    background: rgba(4, 28, 66, .96);
+    border-right: 1px solid rgba(255, 255, 255, .15);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    z-index: 15;
+    box-shadow: 10px 0 30px rgba(0, 0, 0, .3);
+  }
+  .drawer.open { transform: translateX(0); }
+  .drawer-head { display: flex; justify-content: space-between; align-items: center; }
+  .drawer-head h3 { font-size: 18px; }
+
+  .drawer h2 {
+    font-size: 13px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #9fd4ff;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .drawer h2 span { color: #fff; text-transform: none; letter-spacing: 0; }
+
+  textarea {
+    width: 100%;
+    height: 220px;
+    resize: vertical;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, .2);
+    background: rgba(0, 0, 0, .25);
+    color: #fff;
+    padding: 10px 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    font-family: inherit;
+    outline: none;
+  }
+  textarea:focus { border-color: #f5c542; }
+  textarea.dragover { border-color: #f5c542; background: rgba(245, 197, 66, .12); }
+  textarea:disabled { opacity: .6; }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  label.opt { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; padding: 3px 0; }
+  input[type=range] { width: 100%; accent-color: #f5c542; }
+  input[type=radio], input[type=checkbox] { accent-color: #f5c542; }
+  .file-name { font-size: 12px; color: #ffd96a; word-break: break-all; }
+
+  .history { list-style: none; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+  .history li {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    background: rgba(255, 255, 255, .07);
+    padding: 6px 10px;
+    border-radius: 6px;
+  }
+  .history li small { color: #9fd4ff; white-space: nowrap; }
+
+  /* ---------- Winner modal ---------- */
+  .modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 20, 50, .55);
+    z-index: 20;
+  }
+  .modal.show { display: flex; }
+  .modal-card {
+    background: linear-gradient(160deg, #ffffff, #e8f4ff);
+    color: #0b3a75;
+    border-radius: 20px;
+    padding: 34px 48px;
+    text-align: center;
+    min-width: 340px;
+    max-width: 90vw;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .4);
+    animation: pop .45s cubic-bezier(.2, 1.6, .4, 1);
+  }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal-card .label { font-size: 15px; text-transform: uppercase; letter-spacing: .12em; color: #1e88e5; }
+  .modal-card .winner {
+    font-size: clamp(32px, 5.5vw, 64px);
+    font-weight: 800;
+    margin: 12px 0 24px;
+    color: #e0262b;
+    word-break: break-word;
+  }
+  .modal-card .row { justify-content: center; }
+  .modal-card .btn { background: #e3effc; color: #0b3a75; padding: 10px 18px; }
+  .modal-card .btn:hover { background: #cfe3fa; }
+  .modal-card .btn.gold { background: linear-gradient(#ffd96a, #e8a91c); color: #4a2c00; }
+
+  canvas#confetti { position: fixed; inset: 0; pointer-events: none; z-index: 30; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="btn" id="btnSettings">☰ Settings &amp; names</button>
+  <button class="btn" id="btnFull" title="Fullscreen (F)">Fullscreen</button>
+</div>
+
+<header>
+  <h1 class="title" id="title" contenteditable="true" spellcheck="false">Lucky Draw</h1>
+  <div class="stats">
+    <div class="chip">Participants: <b id="statCount">0</b></div>
+    <div class="chip">Drawn: <b id="statDrawn">0</b></div>
+    <div class="chip" id="lastChip" hidden>Last winner: <b id="statLast"></b></div>
+  </div>
+</header>
+
+<main class="stage" id="stage">
+  <canvas id="wheel"></canvas>
+</main>
+
+<div class="base" id="base">
+  <button class="btn gold spin-btn" id="btnSpin">SPIN</button>
+  <p class="hint">Press <b>Space</b> to spin · <b>S</b> settings · <b>F</b> fullscreen</p>
+</div>
+
+<!-- ===== Settings drawer ===== -->
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h3>Settings</h3>
+    <button class="btn" id="btnClose">✕</button>
+  </div>
+
+  <section>
+    <h2>Names <span id="count">0</span></h2>
+    <textarea id="names" placeholder="One name per line...&#10;Or drop a .txt / .csv / .xlsx file here"></textarea>
+    <div class="row" style="margin-top:8px">
+      <button class="btn gold" id="btnUpload">Upload names</button>
+      <button class="btn" id="btnShuffle">Shuffle</button>
+      <button class="btn" id="btnSort">Sort A–Z</button>
+      <button class="btn" id="btnClear">Clear</button>
+    </div>
+    <input type="file" id="fileNames" accept=".txt,.csv,.xlsx,.xls" hidden>
+    <p class="hint" style="margin-top:8px">
+      .txt: one name per line.<br>
+      .csv / .xlsx: uses a column named <i>Name / Full Name / Employee Name</i>,
+      or joins <i>First Name + Last Name</i>, otherwise the first column.
+      (.xlsx needs internet the first time to load the reader.)
+    </p>
+  </section>
+
+  <section>
+    <h2>Music</h2>
+    <label class="opt"><input type="radio" name="music" value="builtin" checked> Built-in game-show tune</label>
+    <label class="opt"><input type="radio" name="music" value="custom" id="radioCustom" disabled> My own music file</label>
+    <label class="opt"><input type="radio" name="music" value="off"> No music (ticks only)</label>
+    <div class="row" style="margin-top:6px">
+      <button class="btn" id="btnMusic">Upload music (.mp3 / .wav)</button>
+    </div>
+    <input type="file" id="fileMusic" accept="audio/*" hidden>
+    <div class="file-name" id="musicName"></div>
+    <div style="margin-top:10px">
+      <h2>Volume <span id="volLabel">70%</span></h2>
+      <input type="range" id="volume" min="0" max="100" value="70">
+    </div>
+  </section>
+
+  <section>
+    <h2>Spin time <span id="durLabel">8s</span></h2>
+    <input type="range" id="duration" min="3" max="15" value="8">
+    <label class="opt" style="margin-top:8px"><input type="checkbox" id="autoRemove" checked> Remove winner after each draw</label>
+  </section>
+
+  <section>
+    <h2>Winners <span id="historyCount">0</span></h2>
+    <div class="row" style="margin-bottom:8px">
+      <button class="btn" id="btnExport">Download winners (.csv)</button>
+    </div>
+    <ul class="history" id="history"></ul>
+  </section>
+</aside>
+
+<!-- Winner popup -->
+<div class="modal" id="modal">
+  <div class="modal-card">
+    <div class="label">🎉 Congratulations 🎉</div>
+    <div class="winner" id="winnerName"></div>
+    <div class="row">
+      <button class="btn" id="btnKeep">Keep on wheel</button>
+      <button class="btn gold" id="btnRemove">Remove &amp; continue</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="confetti"></canvas>
+
+<script>
+/* =========================================================
+   Config & state
+   ========================================================= */
+const COLORS = ['#F7A21B', '#E0262B', '#1BB3E8', '#1C4A63', '#6DBE45'];
+const TAU = Math.PI * 2;
+const POINTER_ANGLE = -Math.PI / 2;     // pointer at 12 o'clock
+const MAX_SLOTS = 36;                   // slots on the full circle -> 18 visible on the half wheel
+const STORAGE_KEY = 'spinWheel.names';
+
+const $ = (s) => document.querySelector(s);
+const canvas = $('#wheel');
+const ctx = canvas.getContext('2d');
+const namesInput = $('#names');
+
+let names = [];
+let order = [];             // display tape: slot -> index in names
+let rotation = 0;           // never wrapped, the tape depends on it
+let spinning = false;
+let spinState = null;
+let pointerKick = 0;
+let bulbPhase = 0;
+let lastPointer = null;
+let highlightK = null;      // segment to glow after a win
+let pendingWinner = -1;     // index in names
+let winners = [];
+let dpr = 1;
+let G = null;               // geometry
+
+/* ---------- Helpers ---------- */
+const mod = (a, n) => ((a % n) + n) % n;
+
+function secureRandom() {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return buf[0] / 4294967296;
+}
+
+function parseLines(text) {
+  return text.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+}
+
+/*
+  Virtual wheel: the full circle has S slots, but there can be many more names.
+  Segment k (any integer) shows names[order[k mod N]]. Only the top half is visible,
+  so names are swapped in and out at the hidden bottom while the wheel turns.
+*/
+function slotCount() {
+  const n = names.length;
+  if (n === 0) return 12;
+  return n <= MAX_SLOTS ? Math.max(n, 6) : MAX_SLOTS;
+}
+
+function pointerIndex(rot) {
+  return Math.floor((POINTER_ANGLE - rot) / (TAU / slotCount()));
+}
+
+function labelFor(k) {
+  if (!names.length) return '—';
+  return names[order[mod(k, names.length)]];
+}
+
+/* =========================================================
+   Geometry & drawing
+   ========================================================= */
+function resize() {
+  const stage = $('#stage');
+  const availW = stage.clientWidth - 24;
+  const availH = stage.clientHeight - 4;
+  const R = Math.max(160, Math.min(availW / 2 - 6, availH / 1.16));
+  const W = Math.ceil(2 * R + 12);
+  const H = Math.ceil(R * 1.16);
+
+  dpr = window.devicePixelRatio || 1;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  document.documentElement.style.setProperty('--base-width', Math.round(2 * R + 30) + 'px');
+
+  const rimW = R * 0.065;
+  G = { W, H, cx: W / 2, cy: H, R, rimW, segR: R - rimW };
+}
+
+function fitText(text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let t = text;
+  while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
+  return t + '…';
+}
+
+function drawRim() {
+  const { cx, cy, R, segR } = G;
+  const ring = ctx.createLinearGradient(0, cy - R, 0, cy);
+  ring.addColorStop(0, '#7fd0ff');
+  ring.addColorStop(0.6, '#1f7fd8');
+  ring.addColorStop(1, '#0b4fa3');
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, TAU);
+  ctx.fillStyle = ring;
+  ctx.fill();
+  ctx.lineWidth = R * 0.008;
+  ctx.strokeStyle = '#b5e5ff';
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, segR + R * 0.004, 0, TAU);
+  ctx.lineWidth = R * 0.01;
+  ctx.strokeStyle = '#0a3d7d';
+  ctx.stroke();
+}
+
+function drawSegments(now) {
+  const { cx, cy, segR } = G;
+  const S = slotCount();
+  const seg = TAU / S;
+  const p = pointerIndex(rotation);
+  const kStart = p - Math.floor(S / 2);
+
+  // one segment per physical slot, centred on the pointer
+  const fontSize = Math.max(11, Math.min(segR * 0.052, 2 * segR * 0.62 * Math.sin(seg / 2) * 0.55));
+  ctx.font = `600 ${fontSize}px "Segoe UI", Roboto, Arial, sans-serif`;
+  ctx.textBaseline = 'middle';
+  const pad = segR * 0.05;
+  const maxText = segR * 0.7;
+
+  for (let k = kStart; k < kStart + S; k++) {
+    const a0 = rotation + k * seg;
+    const mid = mod(a0 + seg / 2, TAU);
+    if (mid > seg && mid < Math.PI - seg) continue;   // hidden bottom half
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, segR, a0, a0 + seg);
+    ctx.closePath();
+    ctx.fillStyle = names.length ? COLORS[mod(k, COLORS.length)] : '#1C4A63';
+    ctx.fill();
+
+    if (k === highlightK) {
+      ctx.fillStyle = `rgba(255,255,255,${0.25 + 0.2 * Math.sin(now / 150)})`;
+      ctx.fill();
+    }
+
+    // separator
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(a0) * segR, cy + Math.sin(a0) * segR);
+    ctx.strokeStyle = 'rgba(255,255,255,.75)';
+    ctx.lineWidth = Math.max(1.5, segR * 0.004);
+    ctx.stroke();
+
+    // label: always readable (flip on the left side)
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.shadowColor = 'rgba(0,0,0,.45)';
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetY = 1;
+    ctx.fillStyle = '#fff';
+    const label = fitText(labelFor(k), maxText);
+    if (mid > Math.PI / 2 && mid < 1.5 * Math.PI) {
+      ctx.rotate(mid + Math.PI);
+      ctx.textAlign = 'left';
+      ctx.fillText(label, -(segR - pad), 0);
+    } else {
+      ctx.rotate(mid);
+      ctx.textAlign = 'right';
+      ctx.fillText(label, segR - pad, 0);
+    }
+    ctx.restore();
+  }
+
+  // depth shading
+  const shade = ctx.createRadialGradient(cx, cy, segR * 0.2, cx, cy, segR);
+  shade.addColorStop(0, 'rgba(255,255,255,.1)');
+  shade.addColorStop(0.78, 'rgba(0,0,0,0)');
+  shade.addColorStop(1, 'rgba(0,0,0,.25)');
+  ctx.beginPath();
+  ctx.arc(cx, cy, segR, 0, TAU);
+  ctx.fillStyle = shade;
+  ctx.fill();
+}
+
+function drawBulbs() {
+  const { cx, cy, rimW, segR } = G;
+  const count = 36;
+  const r = segR + rimW / 2 + G.R * 0.002;
+  const bulbR = rimW * 0.24;
+  for (let i = 0; i < count; i++) {
+    const a = Math.PI + (i / count) * TAU;
+    if (Math.sin(a) > 0.05) continue;   // bottom half is off-canvas
+    const x = cx + Math.cos(a) * r;
+    const y = cy + Math.sin(a) * r;
+    const on = spinning ? (i + Math.floor(bulbPhase)) % 2 === 0 : Math.sin(bulbPhase + i * 0.7) > -0.3;
+
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, bulbR * 2.4);
+    glow.addColorStop(0, on ? 'rgba(255,255,255,1)' : 'rgba(170,215,255,.6)');
+    glow.addColorStop(0.35, on ? 'rgba(120,220,255,.9)' : 'rgba(60,140,220,.5)');
+    glow.addColorStop(1, 'rgba(60,160,255,0)');
+    ctx.beginPath();
+    ctx.arc(x, y, bulbR * 2.4, 0, TAU);
+    ctx.fillStyle = glow;
+    ctx.fill();
+  }
+}
+
+function drawHub() {
+  const { cx, cy, segR } = G;
+  const points = 12;
+  const outer = segR * 0.27;
+  const inner = segR * 0.14;
+  ctx.beginPath();
+  for (let i = 0; i < points * 2; i++) {
+    const r = i % 2 === 0 ? outer : inner;
+    const a = (i / (points * 2)) * TAU - Math.PI / 2;
+    ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+  }
+  ctx.closePath();
+  const sg = ctx.createRadialGradient(cx, cy, inner * 0.5, cx, cy, outer);
+  sg.addColorStop(0, '#3fa9ff');
+  sg.addColorStop(1, '#0d4fa8');
+  ctx.fillStyle = sg;
+  ctx.fill();
+
+  const gold = ctx.createLinearGradient(cx, cy - segR * 0.16, cx, cy);
+  gold.addColorStop(0, '#fff1a8');
+  gold.addColorStop(0.6, '#f5c542');
+  gold.addColorStop(1, '#b07a00');
+  ctx.beginPath();
+  ctx.arc(cx, cy, segR * 0.16, 0, TAU);
+  ctx.fillStyle = gold;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, segR * 0.13, 0, TAU);
+  ctx.fillStyle = '#0b2a52';
+  ctx.fill();
+
+  ctx.fillStyle = '#f5c542';
+  ctx.font = `800 ${segR * 0.05}px "Segoe UI", Roboto, Arial, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('SPIN', cx, cy - segR * 0.065);
+}
+
+function drawPointer() {
+  const { cx, cy, R } = G;
+  const p = R * 0.085;
+  ctx.save();
+  ctx.translate(cx, cy - R + R * 0.02);
+  ctx.rotate(-pointerKick * 0.35);
+
+  const gold = ctx.createLinearGradient(0, -p * 1.8, 0, p * 2);
+  gold.addColorStop(0, '#fff1a8');
+  gold.addColorStop(0.45, '#f5c542');
+  gold.addColorStop(1, '#a86f00');
+
+  ctx.shadowColor = 'rgba(0,0,0,.35)';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetY = 3;
+
+  ctx.beginPath();
+  ctx.moveTo(-p * 0.85, -p * 0.1);
+  ctx.lineTo(p * 0.85, -p * 0.1);
+  ctx.lineTo(0, p * 1.9);
+  ctx.closePath();
+  ctx.fillStyle = gold;
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#7a4d00';
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(-p * 0.45, p * 0.1);
+  ctx.lineTo(p * 0.45, p * 0.1);
+  ctx.lineTo(0, p * 1.35);
+  ctx.closePath();
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fill();
+
+  // four-leaf clover
+  const cy0 = -p * 0.75;
+  const off = p * 0.4;
+  const leafR = p * 0.48;
+  ctx.shadowColor = 'rgba(0,0,0,.3)';
+  ctx.shadowBlur = 6;
+  [[-off, -off], [off, -off], [-off, off], [off, off]].forEach(([dx, dy]) => {
+    ctx.beginPath();
+    ctx.arc(dx, cy0 + dy, leafR, 0, TAU);
+    ctx.fillStyle = gold;
+    ctx.fill();
+  });
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = 'rgba(122,77,0,.7)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-off, cy0 - off); ctx.lineTo(off, cy0 + off);
+  ctx.moveTo(off, cy0 - off); ctx.lineTo(-off, cy0 + off);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function draw(now) {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, G.W, G.H);
+  drawRim();
+  drawSegments(now);
+  drawBulbs();
+  drawHub();
+  drawPointer();
+}
+
+/* =========================================================
+   Sound: ticks, built-in music, fanfare
+   ========================================================= */
+const Sound = {
+  ctx: null,
+  master: null,
+  musicGain: null,
+  sfxGain: null,
+  volume: 0.7,
+
+  init() {
+    if (this.ctx) {
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      return;
+    }
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = this.volume;
+    this.master.connect(this.ctx.destination);
+    this.musicGain = this.ctx.createGain();
+    this.musicGain.connect(this.master);
+    this.sfxGain = this.ctx.createGain();
+    this.sfxGain.connect(this.master);
+  },
+
+  setVolume(v) {
+    this.volume = v;
+    if (this.master) this.master.gain.value = v;
+  },
+
+  tone(freq, time, dur, type = 'square', vol = 0.1, dest = this.sfxGain) {
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.exponentialRampToValueAtTime(vol, time + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    osc.connect(g).connect(dest);
+    osc.start(time);
+    osc.stop(time + dur + 0.02);
+  },
+
+  tick() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.tone(1900, t, 0.035, 'triangle', 0.3);
+    this.tone(900, t, 0.03, 'square', 0.05);
+  },
+
+  fanfare() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime + 0.05;
+    [72, 76, 79, 84].forEach((m, i) => this.tone(midi(m), t + i * 0.11, 0.18, 'square', 0.12));
+    [72, 76, 79, 84].forEach((m) => this.tone(midi(m), t + 0.5, 1.1, 'triangle', 0.14));
+    this.tone(midi(48), t + 0.5, 1.1, 'sawtooth', 0.07);
+  },
+};
+
+const midi = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+// Upbeat arpeggio loop generated in the browser (no file needed)
+const BuiltInMusic = {
+  timer: null,
+  nextTime: 0,
+  step: 0,
+  stepDur: 60 / 150 / 4,               // 16th notes at 150 bpm
+  progression: [
+    [60, 64, 67, 72],                  // C
+    [57, 60, 64, 69],                  // Am
+    [53, 57, 60, 65],                  // F
+    [55, 59, 62, 67],                  // G
+  ],
+  arp: [0, 1, 2, 3, 2, 1, 2, 3],
+  noise: null,
+
+  start() {
+    const a = Sound.ctx;
+    if (!this.noise) {
+      this.noise = a.createBuffer(1, a.sampleRate * 0.05, a.sampleRate);
+      const d = this.noise.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    Sound.musicGain.gain.cancelScheduledValues(a.currentTime);
+    Sound.musicGain.gain.setValueAtTime(1, a.currentTime);
+    this.step = 0;
+    this.nextTime = a.currentTime + 0.05;
+    clearInterval(this.timer);
+    this.timer = setInterval(() => this.schedule(), 25);
+  },
+
+  schedule() {
+    const a = Sound.ctx;
+    while (this.nextTime < a.currentTime + 0.12) {
+      this.playStep(this.step, this.nextTime);
+      this.nextTime += this.stepDur;
+      this.step++;
+    }
+  },
+
+  playStep(step, t) {
+    const chord = this.progression[Math.floor(step / 16) % this.progression.length];
+    const s = step % 16;
+    const dest = Sound.musicGain;
+    Sound.tone(midi(chord[this.arp[s % 8]] + 12), t, this.stepDur * 0.9, 'square', 0.035, dest);
+    if (s % 4 === 0) Sound.tone(midi(chord[0] - 12), t, this.stepDur * 3, 'triangle', 0.18, dest);
+    if (s % 8 === 0) this.kick(t);
+    if (s % 2 === 1) this.hat(t);
+  },
+
+  kick(t) {
+    const a = Sound.ctx;
+    const osc = a.createOscillator();
+    const g = a.createGain();
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.exponentialRampToValueAtTime(40, t + 0.12);
+    g.gain.setValueAtTime(0.5, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    osc.connect(g).connect(Sound.musicGain);
+    osc.start(t);
+    osc.stop(t + 0.16);
+  },
+
+  hat(t) {
+    const a = Sound.ctx;
+    const src = a.createBufferSource();
+    src.buffer = this.noise;
+    const hp = a.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 7000;
+    const g = a.createGain();
+    g.gain.setValueAtTime(0.08, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+    src.connect(hp).connect(g).connect(Sound.musicGain);
+    src.start(t);
+  },
+
+  stop(fade = 0.6) {
+    if (!Sound.ctx) return;
+    const a = Sound.ctx;
+    Sound.musicGain.gain.cancelScheduledValues(a.currentTime);
+    Sound.musicGain.gain.setValueAtTime(Sound.musicGain.gain.value, a.currentTime);
+    Sound.musicGain.gain.linearRampToValueAtTime(0, a.currentTime + fade);
+    setTimeout(() => clearInterval(this.timer), fade * 1000);
+  },
+};
+
+// User-uploaded music file
+const CustomMusic = {
+  audio: null,
+  fadeTimer: null,
+
+  load(file) {
+    if (this.audio) {
+      this.audio.pause();
+      URL.revokeObjectURL(this.audio.src);
+    }
+    this.audio = new Audio(URL.createObjectURL(file));
+    this.audio.loop = true;
+  },
+
+  start() {
+    if (!this.audio) return;
+    clearInterval(this.fadeTimer);
+    this.audio.currentTime = 0;
+    this.audio.volume = Sound.volume;
+    this.audio.play().catch(() => {});
+  },
+
+  stop(fade = 0.8) {
+    if (!this.audio) return;
+    clearInterval(this.fadeTimer);
+    const steps = 20;
+    const start = this.audio.volume;
+    let i = 0;
+    this.fadeTimer = setInterval(() => {
+      i++;
+      this.audio.volume = Math.max(0, start * (1 - i / steps));
+      if (i >= steps) {
+        clearInterval(this.fadeTimer);
+        this.audio.pause();
+      }
+    }, (fade * 1000) / steps);
+  },
+};
+
+function startMusic() {
+  const mode = document.querySelector('input[name=music]:checked').value;
+  if (mode === 'builtin') BuiltInMusic.start();
+  else if (mode === 'custom') CustomMusic.start();
+}
+
+function stopMusic() {
+  BuiltInMusic.stop();
+  CustomMusic.stop();
+}
+
+/* =========================================================
+   Spin logic
+   ========================================================= */
+const easeOut = (t) => 1 - Math.pow(1 - t, 4);
+
+function circularDistance(a, b, n) {
+  const d = mod(a - b, n);
+  return Math.min(d, n - d);
+}
+
+function spin() {
+  if (spinning || $('#modal').classList.contains('show')) return;
+  if (names.length < 2) {
+    alert('Please add at least 2 names.');
+    return;
+  }
+  Sound.init();
+  $('#drawer').classList.remove('open');
+
+  const N = names.length;
+  const S = slotCount();
+  const seg = TAU / S;
+  const duration = Number($('#duration').value);
+  const winner = Math.floor(secureRandom() * N);       // fair pick over the whole list
+  const winnerSlot = order.indexOf(winner);
+  const p0 = pointerIndex(rotation);
+  const minTravel = Math.round((3 + duration * 0.6) * S);
+  const visibleWindow = Math.ceil(S / 4) + 2;
+  let kTarget;
+
+  if (N > 60 && circularDistance(winnerSlot, p0, N) > visibleWindow) {
+    // Large list: put the winner on the tape at a hidden spot a fixed distance away,
+    // so every spin has a similar length regardless of where the winner was.
+    let travel = minTravel + Math.floor(secureRandom() * S);
+    while (circularDistance(mod(p0 - travel, N), p0, N) <= visibleWindow) travel++;
+    kTarget = p0 - travel;
+    const slot = mod(kTarget, N);
+    [order[slot], order[winnerSlot]] = [order[winnerSlot], order[slot]];
+  } else {
+    // Small list (or winner currently on screen): travel to the winner's existing slot
+    kTarget = p0 - minTravel - mod(p0 - minTravel - winnerSlot, N);
+  }
+
+  const landing = 0.15 + secureRandom() * 0.7;
+  spinState = {
+    from: rotation,
+    to: POINTER_ANGLE - (kTarget + landing) * seg,
+    start: performance.now(),
+    duration: duration * 1000,
+  };
+  spinning = true;
+  highlightK = null;
+  lastPointer = p0;
+  setControlsDisabled(true);
+  startMusic();
+}
+
+function finishSpin() {
+  spinning = false;
+  rotation = spinState.to;
+  spinState = null;
+  const k = pointerIndex(rotation);
+  highlightK = k;
+  pendingWinner = order[mod(k, names.length)];
+  stopMusic();
+  Sound.fanfare();
+  showWinner(names[pendingWinner]);
+}
+
+function setControlsDisabled(disabled) {
+  ['#btnSpin', '#btnUpload', '#btnShuffle', '#btnSort', '#btnClear'].forEach((s) => ($(s).disabled = disabled));
+  namesInput.disabled = disabled;
+}
+
+/* ---------- Animation loop ---------- */
+let lastFrame = performance.now();
+
+function loop(now) {
+  const dt = Math.min(0.05, (now - lastFrame) / 1000);
+  lastFrame = now;
+
+  if (spinning && spinState) {
+    const t = Math.min(1, (now - spinState.start) / spinState.duration);
+    rotation = spinState.from + (spinState.to - spinState.from) * easeOut(t);
+    const p = pointerIndex(rotation);
+    if (p !== lastPointer) {
+      lastPointer = p;
+      Sound.tick();
+      pointerKick = 1;
+    }
+    if (t >= 1) finishSpin();
+  }
+
+  pointerKick *= Math.pow(0.0005, dt);
+  bulbPhase += dt * (spinning ? 10 : 1.6);
+
+  draw(now);
+  requestAnimationFrame(loop);
+}
+
+/* =========================================================
+   Winner popup, confetti, history
+   ========================================================= */
+function showWinner(name) {
+  $('#winnerName').textContent = name;
+  $('#btnRemove').textContent = $('#autoRemove').checked ? 'Remove & continue' : 'Remove from wheel';
+  $('#btnKeep').textContent = $('#autoRemove').checked ? 'Keep on wheel' : 'Close';
+  $('#modal').classList.add('show');
+  winners.unshift({ name, time: new Date() });
+  renderHistory();
+  launchConfetti();
+}
+
+function closeWinner(remove) {
+  $('#modal').classList.remove('show');
+  if (remove && pendingWinner > -1) removeName(pendingWinner);
+  pendingWinner = -1;
+  setControlsDisabled(false);
+}
+
+// Remove one name but keep the rest of the tape order stable
+function removeName(idx) {
+  names.splice(idx, 1);
+  order = order.filter((v) => v !== idx).map((v) => (v > idx ? v - 1 : v));
+  highlightK = null;
+  namesInput.value = names.join('\n');
+  saveNames();
+  updateCounts();
+}
+
+function renderHistory() {
+  const ul = $('#history');
+  ul.innerHTML = '';
+  winners.forEach((w, i) => {
+    const li = document.createElement('li');
+    const span = document.createElement('span');
+    span.textContent = `${winners.length - i}. ${w.name}`;
+    const small = document.createElement('small');
+    small.textContent = w.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    li.append(span, small);
+    ul.append(li);
+  });
+  $('#historyCount').textContent = winners.length;
+  $('#statDrawn').textContent = winners.length;
+  if (winners.length) {
+    $('#lastChip').hidden = false;
+    $('#statLast').textContent = winners[0].name;
+  }
+}
+
+function exportWinners() {
+  if (!winners.length) return alert('No winners yet.');
+  const rows = [['No', 'Name', 'Time']];
+  winners.slice().reverse().forEach((w, i) => rows.push([i + 1, w.name, w.time.toLocaleString()]));
+  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'winners.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+const confettiCanvas = $('#confetti');
+const cctx = confettiCanvas.getContext('2d');
+let confetti = [];
+let confettiRunning = false;
+
+function launchConfetti() {
+  confettiCanvas.width = window.innerWidth;
+  confettiCanvas.height = window.innerHeight;
+  const palette = [...COLORS, '#ffffff', '#f5c542'];
+  for (let i = 0; i < 220; i++) {
+    confetti.push({
+      x: window.innerWidth / 2 + (Math.random() - 0.5) * 200,
+      y: window.innerHeight / 2,
+      vx: (Math.random() - 0.5) * 18,
+      vy: -Math.random() * 18 - 6,
+      w: 6 + Math.random() * 8,
+      h: 4 + Math.random() * 6,
+      rot: Math.random() * TAU,
+      vr: (Math.random() - 0.5) * 0.4,
+      color: palette[Math.floor(Math.random() * palette.length)],
+      life: 0,
+    });
+  }
+  if (!confettiRunning) {
+    confettiRunning = true;
+    requestAnimationFrame(confettiLoop);
+  }
+}
+
+function confettiLoop() {
+  cctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  confetti.forEach((p) => {
+    p.vy += 0.45;
+    p.vx *= 0.99;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.rot += p.vr;
+    p.life++;
+    cctx.save();
+    cctx.translate(p.x, p.y);
+    cctx.rotate(p.rot);
+    cctx.fillStyle = p.color;
+    cctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+    cctx.restore();
+  });
+  confetti = confetti.filter((p) => p.y < confettiCanvas.height + 40 && p.life < 400);
+  if (confetti.length) requestAnimationFrame(confettiLoop);
+  else {
+    confettiRunning = false;
+    cctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  }
+}
+
+/* =========================================================
+   Names: input, upload, storage
+   ========================================================= */
+function updateCounts() {
+  $('#count').textContent = names.length;
+  $('#statCount').textContent = names.length;
+}
+
+function saveNames() {
+  try { localStorage.setItem(STORAGE_KEY, namesInput.value); } catch (e) { /* storage unavailable */ }
+}
+
+function onNamesChanged() {
+  names = parseLines(namesInput.value);
+  order = names.map((_, i) => i);
+  highlightK = null;
+  updateCounts();
+  saveNames();
+}
+
+function setNames(list) {
+  namesInput.value = list.join('\n');
+  onNamesChanged();
+}
+
+// Minimal CSV parser: quotes, and comma / semicolon / tab delimiters
+function parseCsv(text) {
+  const firstLine = text.split(/\r?\n/)[0] || '';
+  const delim = [',', ';', '\t'].sort((a, b) => firstLine.split(b).length - firstLine.split(a).length)[0];
+  const rows = [];
+  let row = [], cell = '', quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === delim) { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell); rows.push(row); row = []; cell = '';
+    } else cell += ch;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+// Pick the name column from tabular rows (CSV or Excel)
+function namesFromRows(rows) {
+  rows = rows.filter((r) => r.some((c) => String(c ?? '').trim()));
+  if (!rows.length) return [];
+  const header = rows[0].map((c) => String(c ?? '').trim().toLowerCase());
+  const find = (keys) => header.findIndex((h) => keys.includes(h));
+
+  const nameCol = find(['name', 'names', 'full name', 'fullname', 'employee name', 'staff name',
+    'preferred name', 'display name', 'họ tên', 'họ và tên', 'tên']);
+  const firstCol = find(['first name', 'firstname', 'given name', 'preferred first name']);
+  const lastCol = find(['last name', 'lastname', 'surname', 'family name']);
+  const clean = (v) => String(v ?? '').trim();
+
+  if (nameCol > -1) return rows.slice(1).map((r) => clean(r[nameCol])).filter(Boolean);
+  if (firstCol > -1 && lastCol > -1) {
+    return rows.slice(1).map((r) => `${clean(r[firstCol])} ${clean(r[lastCol])}`.trim()).filter(Boolean);
+  }
+  if (firstCol > -1) return rows.slice(1).map((r) => clean(r[firstCol])).filter(Boolean);
+  return rows.map((r) => clean(r[0])).filter(Boolean);
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.append(s);
+  });
+}
+
+async function loadNamesFile(file) {
+  try {
+    if (/\.xlsx?$/i.test(file.name)) {
+      if (!window.XLSX) await loadScript('https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js');
+      const wb = XLSX.read(await file.arrayBuffer());
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+      setNames(namesFromRows(rows));
+    } else {
+      const text = (await file.text()).replace(/^﻿/, '');
+      setNames(/\.csv$/i.test(file.name) ? namesFromRows(parseCsv(text)) : parseLines(text));
+    }
+  } catch (err) {
+    alert('Could not read this file. For Excel files an internet connection is needed the first time, or save it as .csv instead.');
+  }
+}
+
+/* =========================================================
+   Events
+   ========================================================= */
+let debounce;
+namesInput.addEventListener('input', () => {
+  clearTimeout(debounce);
+  debounce = setTimeout(onNamesChanged, 200);
+});
+
+$('#btnUpload').onclick = () => $('#fileNames').click();
+$('#fileNames').onchange = (e) => {
+  if (e.target.files[0]) loadNamesFile(e.target.files[0]);
+  e.target.value = '';
+};
+
+['dragenter', 'dragover'].forEach((ev) =>
+  namesInput.addEventListener(ev, (e) => { e.preventDefault(); namesInput.classList.add('dragover'); }));
+['dragleave', 'drop'].forEach((ev) =>
+  namesInput.addEventListener(ev, () => namesInput.classList.remove('dragover')));
+namesInput.addEventListener('drop', (e) => {
+  e.preventDefault();
+  if (e.dataTransfer.files[0]) loadNamesFile(e.dataTransfer.files[0]);
+});
+
+$('#btnShuffle').onclick = () => {
+  const list = names.slice();
+  for (let i = list.length - 1; i > 0; i--) {
+    const j = Math.floor(secureRandom() * (i + 1));
+    [list[i], list[j]] = [list[j], list[i]];
+  }
+  setNames(list);
+};
+$('#btnSort').onclick = () => setNames(names.slice().sort((a, b) => a.localeCompare(b)));
+$('#btnClear').onclick = () => {
+  if (!names.length || confirm('Clear all names?')) setNames([]);
+};
+
+$('#btnMusic').onclick = () => $('#fileMusic').click();
+$('#fileMusic').onchange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  CustomMusic.load(file);
+  $('#musicName').textContent = '♪ ' + file.name;
+  $('#radioCustom').disabled = false;
+  $('#radioCustom').checked = true;
+  e.target.value = '';
+};
+
+$('#volume').oninput = (e) => {
+  const v = e.target.value / 100;
+  $('#volLabel').textContent = e.target.value + '%';
+  Sound.setVolume(v);
+  if (CustomMusic.audio && !CustomMusic.audio.paused) CustomMusic.audio.volume = v;
+};
+$('#duration').oninput = (e) => ($('#durLabel').textContent = e.target.value + 's');
+
+$('#btnSpin').onclick = spin;
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const dx = e.clientX - rect.left - G.cx;
+  const dy = e.clientY - rect.top - G.cy;
+  if (Math.hypot(dx, dy) < G.segR * 0.3) spin();
+});
+
+$('#btnKeep').onclick = () => closeWinner(false);
+$('#btnRemove').onclick = () => closeWinner(true);
+$('#btnExport').onclick = exportWinners;
+
+$('#btnSettings').onclick = () => $('#drawer').classList.toggle('open');
+$('#btnClose').onclick = () => $('#drawer').classList.remove('open');
+$('#btnFull').onclick = () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => {});
+};
+
+document.addEventListener('keydown', (e) => {
+  const el = document.activeElement;
+  if (['TEXTAREA', 'INPUT'].includes(el.tagName) || el.isContentEditable) return;
+  const modalOpen = $('#modal').classList.contains('show');
+  if (e.code === 'Space' || e.key === 'Enter') {
+    e.preventDefault();
+    if (modalOpen) closeWinner($('#autoRemove').checked);
+    else if (e.code === 'Space') spin();
+  }
+  if (e.key === 'Escape') {
+    if (modalOpen) closeWinner(false);
+    else $('#drawer').classList.remove('open');
+  }
+  if (e.key.toLowerCase() === 's' && !spinning) $('#btnSettings').click();
+  if (e.key.toLowerCase() === 'f') $('#btnFull').click();
+});
+
+window.addEventListener('resize', resize);
+document.addEventListener('fullscreenchange', resize);
+
+/* =========================================================
+   Init
+   ========================================================= */
+(function init() {
+  let saved = null;
+  try { saved = localStorage.getItem(STORAGE_KEY); } catch (e) { /* storage unavailable */ }
+  namesInput.value = saved !== null ? saved
+    : ['Tech Tools', 'Coffee Crazy', 'Prize Package', 'Tech Time', 'Snack Attack',
+       'Summer Décor', 'Healthy & Hip', 'Wild Side'].join('\n');
+  onNamesChanged();
+  rotation = -(TAU / slotCount()) / 2;   // start with the pointer in the middle of a slot
+  resize();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
